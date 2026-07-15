@@ -48,11 +48,15 @@ enum AX {
     static func allPids() -> [pid_t] {
         let maxCount = proc_listallpids(nil, 0)
         guard maxCount > 0 else { return [] }
-        var pids = [pid_t](repeating: 0, count: Int(maxCount))
-        let byteCount = proc_listallpids(&pids, maxCount * Int32(MemoryLayout<pid_t>.size))
-        guard byteCount > 0 else { return [] }
-        let count = Int(byteCount) / MemoryLayout<pid_t>.size
-        return Array(pids.prefix(count)).filter { $0 > 0 }
+        // 1回目の呼び出しから間に新プロセスが増えても収まるよう余裕を持たせる。
+        var pids = [pid_t](repeating: 0, count: Int(maxCount) + 64)
+        // proc_listallpids の戻り値はバイト数ではなく「格納した pid の個数」
+        // （libproc 内部で proc_listpids のバイト数を sizeof(int) で割って返す）。
+        // バイト数と解釈して sizeof(pid_t) で再度割ると全体の 1/4 しか走査されず、
+        // 配列後方の pid（先に起動していたメイン Zoom アプリ等）を取りこぼす。
+        let count = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+        guard count > 0 else { return [] }
+        return Array(pids.prefix(Int(count))).filter { $0 > 0 }
     }
 
     /// pid の実行可能パス。libproc には bundle id が無いので、パスに "zoom" を含むかで判定する。
