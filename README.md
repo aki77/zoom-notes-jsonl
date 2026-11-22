@@ -38,6 +38,7 @@ scripts/launch-agent.sh uninstall                    # 登録解除
 
 - パネル待機中は負荷を抑えるため2秒間隔で確認します（パネル表示中は0.3秒間隔）。そのためファイルの作成は最大2秒遅れますが、その間に表示された行も取りこぼしません。
 - 出力先は引数か環境変数 `ZOOM_NOTES_OUTPUT_DIR` で指定します（必須）。plist の `EnvironmentVariables` に書き込まれます。
+- 確定待ち秒数を変えたい場合は `ZOOM_NOTES_TAIL_DEBOUNCE_SECONDS=2 scripts/launch-agent.sh install ~/zoom-transcripts` のように指定します。指定せずに `install` し直すと既定値（1.5秒）に戻ります。
 - バイナリは `~/Library/Application Support/zoom-notes-jsonl/` にコピーされ、ログは `~/Library/Logs/zoom-notes-jsonl/zoom-notes-jsonl.log` に出ます。ログには発話テキストも含まれます。
 - **アクセシビリティ権限はコピーしたバイナリに対して付与してください**（ターミナルへの許可は引き継がれません）。未許可の間は30秒ごとに再起動して許可を求め、許可されれば自動で動き始めます。
 - 再ビルドしてから `install` し直すとバイナリの署名が変わるため、アクセシビリティの許可をいったん外して付け直す必要がある場合があります。

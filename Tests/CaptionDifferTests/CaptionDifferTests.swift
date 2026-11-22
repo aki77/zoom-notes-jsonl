@@ -153,6 +153,17 @@ final class CaptionDifferTests: XCTestCase {
         XCTAssertEqual(afterDebounce.first?.seq, 5)
     }
 
+    /// 既定の確定待ちは 1.5 秒。0.6 秒では Zoom が書き込み途中の行を確定してしまい、
+    /// 訂正行が多発した（実会議の記録で試算し 1.5 秒で訂正行が約94%減）。
+    func testDefaultDebounceWaitsOnePointFiveSeconds() {
+        let differ = CaptionDiffer()
+        let lines = [line("A", "今日は。")]
+
+        XCTAssertTrue(differ.step(lines: lines, now: 0).isEmpty)
+        XCTAssertTrue(differ.step(lines: lines, now: 1.4).isEmpty, "1.5 秒未満では確定しない")
+        XCTAssertEqual(differ.step(lines: lines, now: 1.5).map(\.text), ["今日は。"])
+    }
+
     /// 空のスナップショットは何も返さずクラッシュしない。
     func testEmptySnapshotReturnsNoCues() {
         let differ = CaptionDiffer()

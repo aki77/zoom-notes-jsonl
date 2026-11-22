@@ -39,7 +39,7 @@ signal(SIGTERM) { _ in terminationRequested = 1 }
 // パネル検出時点で既に表示済みの行は初回スナップショットでまとめて拾えるので、取りこぼしはない。
 let activePollInterval = 0.3
 let idlePollInterval = 2.0
-let differ = CaptionDiffer()
+let differ = CaptionDiffer(tailDebounceSeconds: Config.resolveTailDebounceSeconds())
 var lastStatus = ""
 
 func setStatus(_ s: String) {

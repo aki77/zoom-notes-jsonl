@@ -22,6 +22,7 @@ usage() {
   cat >&2 <<EOF
 usage:
   $0 install [OUTPUT_DIR]   (OUTPUT_DIR 省略時は環境変数 ZOOM_NOTES_OUTPUT_DIR を使う)
+                            (確定待ち秒数は環境変数 ZOOM_NOTES_TAIL_DEBOUNCE_SECONDS で指定。省略時は既定値)
   $0 uninstall
   $0 status
 EOF
@@ -47,6 +48,7 @@ unload_if_loaded() {
 # plutil で組み立てるのは、パスに & や < が含まれても XML を壊さないため。
 write_plist() {
   local output_dir="$1"
+  local tail_debounce="$2"
   local tmp_plist="$PLIST_PATH.tmp"
   rm -f "$tmp_plist"
   plutil -create xml1 "$tmp_plist"
@@ -55,6 +57,9 @@ write_plist() {
   plutil -insert ProgramArguments.0 -string "$BINARY_PATH" "$tmp_plist"
   plutil -insert EnvironmentVariables -dictionary "$tmp_plist"
   plutil -insert EnvironmentVariables.ZOOM_NOTES_OUTPUT_DIR -string "$output_dir" "$tmp_plist"
+  if [[ -n "$tail_debounce" ]]; then
+    plutil -insert EnvironmentVariables.ZOOM_NOTES_TAIL_DEBOUNCE_SECONDS -string "$tail_debounce" "$tmp_plist"
+  fi
   plutil -insert RunAtLoad -bool true "$tmp_plist"
   # クラッシュハンドラは _exit(128+sig) で終わるため Crashed では拾えない。非0終了で再起動させる。
   # SIGTERM 時は exit(0) なので、launchctl での停止後に勝手に再起動はしない。
@@ -75,6 +80,12 @@ cmd_install() {
     echo "エラー: 出力先を引数か ZOOM_NOTES_OUTPUT_DIR で指定してください" >&2
     usage
   fi
+  local tail_debounce="${ZOOM_NOTES_TAIL_DEBOUNCE_SECONDS:-}"
+  # 不正値のまま登録すると、常駐側が起動直後のエラー終了と再起動を繰り返すため、登録前に弾く。
+  if [[ -n "$tail_debounce" ]] && ! [[ "$tail_debounce" =~ ^[0-9]+(\.[0-9]+)?$ && "$tail_debounce" =~ [1-9] ]]; then
+    echo "エラー: ZOOM_NOTES_TAIL_DEBOUNCE_SECONDS は正の数で指定してください: $tail_debounce" >&2
+    exit 64
+  fi
   mkdir -p "$output_dir"
   output_dir="$(cd "$output_dir" && pwd -P)"
 
@@ -87,13 +98,14 @@ cmd_install() {
   chmod 755 "$BINARY_PATH.tmp"
   mv -f "$BINARY_PATH.tmp" "$BINARY_PATH"
 
-  write_plist "$output_dir"
+  write_plist "$output_dir" "$tail_debounce"
   launchctl bootstrap "$DOMAIN" "$PLIST_PATH"
 
   cat <<EOF
 登録しました: $LABEL
   バイナリ: $BINARY_PATH
   出力先:   $output_dir
+  確定待ち: ${tail_debounce:-既定値}${tail_debounce:+秒}
   ログ:     $LOG_PATH
 
 初回（または再インストール後）は、システム設定 > プライバシーとセキュリティ > アクセシビリティ で
