@@ -41,7 +41,8 @@ scripts/launch-agent.sh uninstall                    # 登録解除
 - 確定待ち秒数を変えたい場合は `ZOOM_NOTES_TAIL_DEBOUNCE_SECONDS=2 scripts/launch-agent.sh install ~/zoom-transcripts` のように指定します。指定せずに `install` し直すと既定値（1.5秒）に戻ります。
 - バイナリは `~/Library/Application Support/zoom-notes-jsonl/` にコピーされ、ログは `~/Library/Logs/zoom-notes-jsonl/zoom-notes-jsonl.log` に出ます。ログには発話テキストも含まれます。
 - **アクセシビリティ権限はコピーしたバイナリに対して付与してください**（ターミナルへの許可は引き継がれません）。未許可の間は30秒ごとに再起動して許可を求め、許可されれば自動で動き始めます。
-- 再ビルドしてから `install` し直すとバイナリの署名が変わるため、アクセシビリティの許可をいったん外して付け直す必要がある場合があります。
+- `install` はキーチェーンにあるコード署名用の証明書（Apple Development など）でバイナリに署名します。これによりアクセシビリティの許可が証明書に紐づき、再ビルドして `install` し直しても許可が外れません。証明書は `ZOOM_NOTES_SIGNING_IDENTITY`（証明書名か SHA-1）で指定でき、見つからない場合は ad-hoc 署名になります（その場合は再インストールのたびに許可の付け直しが必要です）。
+- 許可したのにダイアログが出続ける場合は、アクセシビリティの一覧に古い `zoom-notes-jsonl` が残っています。「−」で削除してから許可し直してください。
 
 ## 出力
 

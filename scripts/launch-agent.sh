@@ -45,6 +45,27 @@ unload_if_loaded() {
   exit 1
 }
 
+# ad-hoc 署名だとアクセシビリティ権限がバイナリのハッシュに紐づき、再ビルドのたびに外れる。
+# 証明書で署名すると権限が証明書に紐づくため、再インストールしても維持される。
+resolve_signing_identity() {
+  if [[ -n "${ZOOM_NOTES_SIGNING_IDENTITY:-}" ]]; then
+    echo "$ZOOM_NOTES_SIGNING_IDENTITY"
+    return 0
+  fi
+  security find-identity -v -p codesigning 2>/dev/null \
+    | sed -nE 's/^ *[0-9]+\) ([0-9A-F]{40}) ".*$/\1/p' | head -n 1
+}
+
+sign_binary() {
+  local path="$1" identity="$2"
+  if [[ -z "$identity" ]]; then
+    echo "警告: コード署名用の証明書が見つからないため ad-hoc 署名のままにします（再インストールのたびにアクセシビリティの許可が外れます）" >&2
+    return 0
+  fi
+  codesign --force --sign "$identity" --identifier zoom-notes-jsonl "$path"
+  codesign --verify --strict "$path"
+}
+
 # plutil で組み立てるのは、パスに & や < が含まれても XML を壊さないため。
 write_plist() {
   local output_dir="$1"
@@ -92,10 +113,16 @@ cmd_install() {
   swift build -c release --package-path "$REPO_ROOT"
 
   mkdir -p "$INSTALL_DIR" "$LOG_DIR" "$(dirname "$PLIST_PATH")"
-  unload_if_loaded
   # 実行中バイナリを上書きするとコード署名キャッシュと食い違って kill されうるため、別名コピー後に置き換える。
+  # 署名に失敗しても稼働中のエージェントを止めないよう、登録解除より前に署名まで済ませる。
+  trap 'rm -f "$BINARY_PATH.tmp"' EXIT
   cp "$REPO_ROOT/.build/release/zoom-notes-jsonl" "$BINARY_PATH.tmp"
   chmod 755 "$BINARY_PATH.tmp"
+  local signing_identity
+  signing_identity="$(resolve_signing_identity)"
+  sign_binary "$BINARY_PATH.tmp" "$signing_identity"
+
+  unload_if_loaded
   mv -f "$BINARY_PATH.tmp" "$BINARY_PATH"
 
   write_plist "$output_dir" "$tail_debounce"
@@ -106,10 +133,12 @@ cmd_install() {
   バイナリ: $BINARY_PATH
   出力先:   $output_dir
   確定待ち: ${tail_debounce:-既定値}${tail_debounce:+秒}
+  署名:     ${signing_identity:-ad-hoc}
   ログ:     $LOG_PATH
 
-初回（または再インストール後）は、システム設定 > プライバシーとセキュリティ > アクセシビリティ で
+初回（ad-hoc 署名なら再インストールのたびに）は、システム設定 > プライバシーとセキュリティ > アクセシビリティ で
 上記バイナリ（zoom-notes-jsonl）を許可してください。許可後、最大30秒で自動的に起動し直します。
+一覧に古い zoom-notes-jsonl が残っていると許可が効かないため、その場合は「−」で削除してから許可し直してください。
 状態確認: $0 status
 EOF
 }
