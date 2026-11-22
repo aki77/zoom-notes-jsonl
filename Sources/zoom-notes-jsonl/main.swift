@@ -34,8 +34,11 @@ var terminationRequested: sig_atomic_t = 0
 signal(SIGINT) { _ in terminationRequested = 1 }
 signal(SIGTERM) { _ in terminationRequested = 1 }
 
-// ポーリング間隔（秒）。AX 読み取りは軽いので 0.3s で追記に十分追従する。
-let pollInterval = 0.3
+// ポーリング間隔（秒）。AX 読み取りは軽いので、パネル表示中は 0.3s で追記に十分追従する。
+// 待機中は毎回の全プロセス走査が常駐時の定常負荷（実測で1コアの約3%）になるため延ばす。
+// パネル検出時点で既に表示済みの行は初回スナップショットでまとめて拾えるので、取りこぼしはない。
+let activePollInterval = 0.3
+let idlePollInterval = 2.0
 let differ = CaptionDiffer()
 var lastStatus = ""
 
@@ -77,5 +80,5 @@ while true {
             setStatus("waiting_panel")
         }
     }
-    Thread.sleep(forTimeInterval: pollInterval)
+    Thread.sleep(forTimeInterval: lastStatus == "active" ? activePollInterval : idlePollInterval)
 }
