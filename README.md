@@ -59,3 +59,23 @@ swift run ax-dump --text-only   # テキスト要素のみ列挙
 swift run ax-dump --find-notes  # 「自分用メモ」ウィンドウを全プロセス横断で探索
 swift run ax-dump --dump-notes  # 「自分用メモ」ウィンドウの構造をダンプ
 ```
+
+## 再生スクリプト
+
+`scripts/replay.py` は過去の出力 JSONL をリアルタイム追記のように `./replay/live.jsonl` へ再生します。出力を tail して処理するツールの開発・テスト用です（Python 3、標準ライブラリのみ）。
+
+```sh
+scripts/replay.py ~/zoom-transcripts/xxx-transcript.jsonl                 # 等倍で再生
+scripts/replay.py xxx-transcript.jsonl --speed 10 --start 12:30           # 10倍速、12分30秒地点から
+scripts/replay.py xxx-transcript.jsonl --dedupe --partial-prob 0.3        # 重複除去＋途中書きを混ぜる
+```
+
+| オプション | 説明 |
+|---|---|
+| `--out PATH` | 出力先（既定 `./replay/live.jsonl`、開始時に truncate） |
+| `--speed N` | 再生速度の倍率（既定 1.0） |
+| `--start POS` | 開始位置。分（`10`、`2.5`）または `mm:ss`。それより前の行は起動時に一括書き出し |
+| `--partial-prob P` | 1行を2回の write に分割する確率（既定 0） |
+| `--partial-delay SEC` | 分割 write の間の待ち秒（既定 0.05、speed 非適用） |
+| `--seed N` | 乱数シード（再現用） |
+| `--dedupe` | `revision==1` で出力済みの (speaker, text) の行をスキップ |
