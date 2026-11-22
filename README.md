@@ -26,6 +26,21 @@ ZOOM_NOTES_OUTPUT_DIR=~/zoom-transcripts .build/release/zoom-notes-jsonl
 .build/release/zoom-notes-jsonl --out ~/zoom-transcripts
 ```
 
+## 常駐させる（ログイン時に自動起動）
+
+launchd の LaunchAgent として登録すると、ログイン時に自動起動し、異常終了しても再起動します。起動しておけば、Zoom の起動や会議参加を待って、自分用メモパネルを開くたびに新しいファイルを作ります。
+
+```sh
+scripts/launch-agent.sh install ~/zoom-transcripts   # ビルドして登録（出力先を変えるときも再実行）
+scripts/launch-agent.sh status                       # 稼働状態と直近ログ
+scripts/launch-agent.sh uninstall                    # 登録解除
+```
+
+- 出力先は引数か環境変数 `ZOOM_NOTES_OUTPUT_DIR` で指定します（必須）。plist の `EnvironmentVariables` に書き込まれます。
+- バイナリは `~/Library/Application Support/zoom-notes-jsonl/` にコピーされ、ログは `~/Library/Logs/zoom-notes-jsonl/zoom-notes-jsonl.log` に出ます。ログには発話テキストも含まれます。
+- **アクセシビリティ権限はコピーしたバイナリに対して付与してください**（ターミナルへの許可は引き継がれません）。未許可の間は30秒ごとに再起動して許可を求め、許可されれば自動で動き始めます。
+- 再ビルドしてから `install` し直すとバイナリの署名が変わるため、アクセシビリティの許可をいったん外して付け直す必要がある場合があります。
+
 ## 出力
 
 会議セッション（自分用メモパネルの検出〜クローズ）ごとに、セッション開始時刻を元にしたファイル名で JSON Lines ファイルが作成されます。
