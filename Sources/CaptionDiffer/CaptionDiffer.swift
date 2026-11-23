@@ -59,7 +59,10 @@ public final class CaptionDiffer {
     private var recentEmitted: [EmittedRecord] = []
     private let recentWindow: Int
 
-    public init(tailDebounceSeconds: Double = 0.6, recentWindow: Int = 4) {
+    /// 0.6 秒では Zoom が書き込み途中の行まで確定して訂正行が多発したため、実会議の記録で試算して決めた値。
+    public static let defaultTailDebounceSeconds = 1.5
+
+    public init(tailDebounceSeconds: Double = CaptionDiffer.defaultTailDebounceSeconds, recentWindow: Int = 4) {
         self.debounce = tailDebounceSeconds
         self.recentWindow = recentWindow
     }

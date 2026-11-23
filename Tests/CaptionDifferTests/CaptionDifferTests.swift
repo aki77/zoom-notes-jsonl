@@ -138,6 +138,32 @@ final class CaptionDifferTests: XCTestCase {
         XCTAssertTrue(cues.isEmpty, "recentWindow 外の行は訂正として拾われない")
     }
 
+    /// 待機中はポーリング間隔が長く、パネル検出時点で既に複数行が表示されていることがある。
+    /// その初回スナップショットの行を取りこぼさないこと（末尾以外は即確定、末尾は debounce 後）。
+    func testLinesAlreadyPresentAtFirstSnapshotAreAllEmitted() {
+        let differ = CaptionDiffer(tailDebounceSeconds: 0.6, recentWindow: 4)
+        let lines = (0..<5).map { line("A", "line\($0)") }
+
+        let first = differ.step(lines: lines, now: 0)
+        XCTAssertEqual(first.map(\.text), ["line0", "line1", "line2", "line3"])
+        XCTAssertEqual(first.map(\.seq), [1, 2, 3, 4])
+
+        let afterDebounce = differ.step(lines: lines, now: 0.7)
+        XCTAssertEqual(afterDebounce.map(\.text), ["line4"])
+        XCTAssertEqual(afterDebounce.first?.seq, 5)
+    }
+
+    /// 既定の確定待ちは 1.5 秒。0.6 秒では Zoom が書き込み途中の行を確定してしまい、
+    /// 訂正行が多発した（実会議の記録で試算し 1.5 秒で訂正行が約94%減）。
+    func testDefaultDebounceWaitsOnePointFiveSeconds() {
+        let differ = CaptionDiffer()
+        let lines = [line("A", "今日は。")]
+
+        XCTAssertTrue(differ.step(lines: lines, now: 0).isEmpty)
+        XCTAssertTrue(differ.step(lines: lines, now: 1.4).isEmpty, "1.5 秒未満では確定しない")
+        XCTAssertEqual(differ.step(lines: lines, now: 1.5).map(\.text), ["今日は。"])
+    }
+
     /// 空のスナップショットは何も返さずクラッシュしない。
     func testEmptySnapshotReturnsNoCues() {
         let differ = CaptionDiffer()
